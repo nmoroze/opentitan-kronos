@@ -55,9 +55,27 @@ module spi_fwmode (
 
   spi_byte_t rx_data_d, rx_data_q;
 
+  logic        current_cfg_rx_order;
+
+  // Ensures the current RX order can't change in the middle of a byte being
+  // received (can still have CDC metastability issues though)
+  always_ff @(posedge clk_in_i or negedge rst_in_ni) begin
+    if (!rst_in_ni) begin
+      current_cfg_rx_order <= 1'b0;
+    end else if (rx_bitcount == BITWIDTH'(BITS-1)) begin
+      current_cfg_rx_order <= cfg_rxorder_i;
+    end
+  end
+
+  // Use cfg_rx_order_i directly on first bit cause we start receiving bits on
+  // our very first clk_in_i cycle (and current_cfg_rx_order would be updated
+  // too late
+  assign cfg_rx_order = (rx_bitcount == BITWIDTH'(BITS-1)) ? cfg_rxorder_i :
+                        current_cfg_rx_order;
+
   // Serial to Parallel
   always_comb begin
-    if (cfg_rxorder_i) begin
+    if (cfg_rx_order) begin
       rx_data_d = {mosi, rx_data_q[BITS-1:1]};
     end else begin
       rx_data_d = {rx_data_q[BITS-2:0], mosi};
