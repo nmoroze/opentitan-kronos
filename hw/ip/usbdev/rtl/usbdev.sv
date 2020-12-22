@@ -93,9 +93,13 @@ module usbdev (
 
   logic              usb_mem_b_req;
   logic              usb_mem_b_write;
+  logic              usb_mem_b_rvalid;
+  logic              usb_mem_b_rvalid_q;
+  logic              usb_mem_b_rvalid_d;
   logic [SramAw-1:0] usb_mem_b_addr;
   logic [SramDw-1:0] usb_mem_b_wdata;
   logic [SramDw-1:0] usb_mem_b_rdata;
+  logic [SramDw-1:0] usb_mem_b_rdata_safe;
 
   logic              usb_clr_devaddr;
   logic              usb_event_av_empty, event_av_overflow, usb_event_rx_full;
@@ -471,7 +475,7 @@ module usbdev (
     .mem_write_o          (usb_mem_b_write),
     .mem_addr_o           (usb_mem_b_addr),
     .mem_wdata_o          (usb_mem_b_wdata),
-    .mem_rdata_i          (usb_mem_b_rdata),
+    .mem_rdata_i          (usb_mem_b_rdata_safe),
 
     // control
     .enable_i             (usb_enable),
@@ -647,12 +651,38 @@ module usbdev (
     .b_write_i  (usb_mem_b_write),
     .b_addr_i   (usb_mem_b_addr),
     .b_wdata_i  (usb_mem_b_wdata),
-    .b_rvalid_o (),
+    .b_rvalid_o (usb_mem_b_rvalid_d),
     .b_rdata_o  (usb_mem_b_rdata),
     .b_rerror_o (),
 
     .cfg_i      (8'h0)
   );
+
+  // Following 2 blocks latch valid signal every time we make a new memory
+  // request. usb_mem_b_rvalid_d is delayed 1 cycle from the request, so we need
+  // an extra FF to delay when we update usb_mem_b_rvalid_q
+  logic        usb_mem_b_req_q;
+  always @(posedge clk_usb_48mhz_i or negedge rst_usb_48mhz_ni) begin
+    if (!rst_usb_48mhz_ni) begin
+      usb_mem_b_req_q <= 1'b0;
+    end else begin
+      usb_mem_b_req_q <= usb_mem_b_req | usb_mem_b_write;
+    end
+  end
+
+  always @(posedge clk_usb_48mhz_i or negedge rst_usb_48mhz_ni) begin
+    if (!rst_usb_48mhz_ni) begin
+      usb_mem_b_rvalid_q <= 1'b0;
+    end else if (usb_mem_b_req_q) begin
+      usb_mem_b_rvalid_q <= usb_mem_b_rvalid_d;
+    end
+  end
+
+  assign usb_mem_b_rvalid = usb_mem_b_rvalid_q | usb_mem_b_rvalid_d;
+
+  // Use valid signal to gate rdata - prevents uninitialized data from leaking
+  // into the downstream register
+  assign usb_mem_b_rdata_safe = usb_mem_b_rvalid ? usb_mem_b_rdata : 'b0;
 
   // Register module
   usbdev_reg_top u_reg (

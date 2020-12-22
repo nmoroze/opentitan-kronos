@@ -241,7 +241,10 @@ module usbdev_usbif  #(
   end
 
   assign mem_raddr = {in_buf_i,in_ep_get_addr[PktW-1:2]};
-  assign mem_read = pkt_start_rd | (in_ep_data_get & (in_ep_get_addr[1:0] == 2'b0));
+  // Only make read request if we've actually indicated the current IN endpoint
+  // has data available
+  assign mem_read = (pkt_start_rd | (in_ep_data_get & (in_ep_get_addr[1:0] == 2'b0))) &
+                    in_rdy_i[in_endpoint_o];
 
   assign in_ep_data = in_ep_get_addr[1] ?
                       (in_ep_get_addr[0] ? mem_rdata_i[31:24] : mem_rdata_i[23:16]) :
