@@ -163,14 +163,26 @@ module prim_fifo_async #(
   // storage //
   /////////////
 
-  logic [Width-1:0] storage [Depth];
+  logic [Width-1:0] storage_rest [Depth - 1];
+  logic [Width-1:0] storage_first;
+
+  always_ff @(posedge clk_wr_i or negedge rst_wr_ni)
+    if (!rst_wr_ni) begin
+      storage_first <= 'b0;
+    end else if (fifo_incr_wptr) begin
+      if (fifo_wptr[PTR_WIDTH-2:0] == {(PTR_WIDTH-2){1'b0}}) begin
+        storage_first <= wdata;
+      end
+    end
 
   always_ff @(posedge clk_wr_i)
     if (fifo_incr_wptr) begin
-      storage[fifo_wptr[PTR_WIDTH-2:0]] <= wdata;
+      storage_rest[fifo_wptr[PTR_WIDTH-2:0] - 1] <= wdata;
     end
 
-  assign rdata = storage[fifo_rptr[PTR_WIDTH-2:0]];
+  assign rdata = (fifo_rptr[PTR_WIDTH-2:0] == {(PTR_WIDTH-2){1'b0}}) ?
+                 storage_first :
+                 storage_rest[fifo_rptr[PTR_WIDTH-2:0] - 1];
 
   // gray code conversion functions.  algorithm walks up from 0..N-1
   // then flips the upper bit and walks down from N-1 to 0.
