@@ -112,7 +112,11 @@ module prim_fifo_sync #(
 
     // the generate blocks below are needed to avoid lint errors due to array indexing
     // in the where the fifo only has one storage element
-    logic [Depth-1:0][Width-1:0] storage;
+
+    // switch Depth from a packed to an unpacked dimension to ensure Yosys
+    // infers this as a memory
+    logic [Width-1:0] storage[Depth];
+
     logic [Width-1:0] storage_rdata;
     if (Depth == 1) begin : gen_depth_eq1
       assign storage_rdata = storage[0];
