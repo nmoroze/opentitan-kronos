@@ -11,13 +11,6 @@ module prim_generic_clock_gating (
   output logic clk_o
 );
 
-  // Assume en_i synchronized, if not put synchronizer prior to en_i
-  logic en_latch;
-  always_latch begin
-    if (!clk_i) begin
-      en_latch = en_i | test_en_i;
-    end
-  end
-  assign clk_o = en_latch & clk_i;
+  assign clk_o = clk_i;
 
 endmodule
