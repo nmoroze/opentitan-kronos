@@ -25,6 +25,14 @@ module prim_generic_rom #(
     end
   end
 
+  // Hack to get memory to be output with one set of registers by Yosys (and
+  // also generate nice top_earlgrey_i invariant function)
+  logic [(2**(Aw-2))-1:0] xaddr;
+  assign xaddr = 0;
+  always @(posedge clk_i) begin
+    mem[xaddr] <= mem[xaddr];
+  end
+
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
       dvalid_o <= 1'b0;
