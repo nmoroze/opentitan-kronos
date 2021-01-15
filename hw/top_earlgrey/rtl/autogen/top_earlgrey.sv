@@ -255,11 +255,21 @@ module top_earlgrey #(
   assign spi_device_rst_n = sys_rst_n;
 
   // Reset synchronizer for USB
-  logic [1:0] usb_rst_q;
-  always_ff @(posedge usb_clk) begin
-    usb_rst_q <= {usb_rst_q[0], sys_rst_n};
-  end
-  assign usb_rst_n = sys_rst_n & usb_rst_q[1];
+  logic usb_rst_sync_out;
+  prim_flop_2sync #(
+    .Width(1)
+  ) usb_reset_sync (
+    .clk_i(usb_clk),
+    .rst_ni(sys_rst_n),
+    .d(1'b1),
+    .q(usb_rst_sync_out)
+  );
+  // & is redundant, but necessary for our toolchain to model async reset
+  // correctly. without it, the reset signal has two hops to reset the USB,
+  // first to reset the sync registers, the output of which has to then go and
+  // reset the USB registers. This would happen asynchronously in real hardware,
+  // but it would require multiple steps with Yosys.
+  assign usb_rst_n = sys_rst_n & usb_rst_sync_out;
 
   // debug request from rv_dm to core
   logic debug_req;
